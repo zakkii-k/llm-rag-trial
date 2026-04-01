@@ -133,7 +133,7 @@ for model_i in "${SELECTED_MODEL_IDX[@]}"; do
 
         START_TIME=$(date +%s)
 
-        if python app/run_scenario.py \
+        if python3 app/run_scenario.py \
               --prompt-file   "$PROMPT_FILE" \
               --mode          "$MODE_KEY" \
               --model         "$MODEL_KEY" \
