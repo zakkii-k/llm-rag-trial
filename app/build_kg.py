@@ -155,21 +155,21 @@ class KnowledgeGraphBuilder:
         # ASSIGNED_TO (Bug -> Engineer)
         tx.run("""
         UNWIND $rows AS r
-        WHERE r.assignee_id <> ""
+        WITH r WHERE r.assignee_id <> ""
         MATCH (b:Bug {id: r.id}), (e:Engineer {id: r.assignee_id})
         MERGE (b)-[:ASSIGNED_TO]->(e)
         """, rows=rows)
         # FOUND_IN (Bug -> Module)
         tx.run("""
         UNWIND $rows AS r
-        WHERE r.module_id <> ""
+        WITH r WHERE r.module_id <> ""
         MATCH (b:Bug {id: r.id}), (m:Module {id: r.module_id})
         MERGE (b)-[:FOUND_IN]->(m)
         """, rows=rows)
         # BLOCKS (Bug -> Release)
         tx.run("""
         UNWIND $rows AS r
-        WHERE r.blocks_release_id <> ""
+        WITH r WHERE r.blocks_release_id <> ""
         MATCH (b:Bug {id: r.id}), (rel:Release {id: r.blocks_release_id})
         MERGE (b)-[:BLOCKS]->(rel)
         """, rows=rows)
@@ -203,6 +203,9 @@ class KnowledgeGraphBuilder:
 
 
 def main():
+    from dotenv import load_dotenv
+    load_dotenv()
+
     parser = argparse.ArgumentParser(description="Neo4j にナレッジグラフを構築する")
     parser.add_argument(
         "--data-dir", default="data/small",

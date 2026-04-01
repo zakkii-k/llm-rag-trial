@@ -10,6 +10,103 @@ from pathlib import Path
 REPORTS_DIR = Path("docs/reports")
 
 
+def save_scenario_report(
+    scenario_name: str,
+    mode: str,
+    model_name: str,
+    data_dir: str,
+    results: list[dict],
+    started_at: datetime | None = None,
+) -> Path:
+    """
+    シナリオ単位（複数クエリをまとめて）のレポートを1ファイルに保存する。
+
+    results の各要素:
+        {
+          "prompt": str,
+          "answer": str,
+          "elapsed": float,
+          "tokens_in": int,
+          "tokens_out": int,
+          "cypher": str,        # GraphRAGのみ
+          "cypher_result": str, # GraphRAGのみ
+          "error": str,         # エラー時のみ
+        }
+    """
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    now = started_at or datetime.now()
+    timestamp = now.strftime("%Y%m%d_%H%M%S")
+    safe_model = model_name.replace(":", "-").replace("/", "-")
+    filename = f"{timestamp}_{scenario_name}_{mode}_{safe_model}.md"
+    report_path = REPORTS_DIR / filename
+
+    total_elapsed = sum(r.get("elapsed", 0) for r in results)
+    total_tokens_in = sum(r.get("tokens_in", 0) for r in results)
+    total_tokens_out = sum(r.get("tokens_out", 0) for r in results)
+
+    lines = [
+        f"# 実行レポート — {scenario_name}",
+        "",
+        "| 項目 | 値 |",
+        "|------|-----|",
+        f"| 実行日時 | {now.strftime('%Y-%m-%d %H:%M:%S')} |",
+        f"| シナリオ | {scenario_name} |",
+        f"| モード | {mode} |",
+        f"| モデル | {model_name} |",
+        f"| データソース | {data_dir} |",
+        f"| クエリ数 | {len(results)} |",
+        f"| 合計回答時間 | {total_elapsed:.2f} 秒 |",
+        f"| 合計トークン（入力） | {total_tokens_in} |",
+        f"| 合計トークン（出力） | {total_tokens_out} |",
+        "",
+        "---",
+        "",
+    ]
+
+    for i, r in enumerate(results, 1):
+        lines += [
+            f"## Q{i}. {r['prompt']}",
+            "",
+        ]
+
+        if "error" in r:
+            lines += [f"**エラー:** {r['error']}", ""]
+            continue
+
+        if mode in ("graphrag", "both") and r.get("cypher"):
+            lines += [
+                "**生成Cypherクエリ:**",
+                "",
+                "```cypher",
+                r["cypher"].strip(),
+                "```",
+                "",
+                "**Cypher実行結果:**",
+                "",
+                "```",
+                str(r.get("cypher_result", "")).strip(),
+                "```",
+                "",
+            ]
+
+        lines += [
+            "**回答:**",
+            "",
+            r.get("answer", "（回答なし）").strip(),
+            "",
+            "| 指標 | 値 |",
+            "|------|-----|",
+            f"| 回答時間 | {r.get('elapsed', 0):.2f} 秒 |",
+            f"| 入力トークン | {r.get('tokens_in', 0)} |",
+            f"| 出力トークン | {r.get('tokens_out', 0)} |",
+            "",
+        ]
+
+    report_path.write_text("\n".join(lines), encoding="utf-8")
+    return report_path
+
+
 def save_report(
     mode: str,
     model_name: str,

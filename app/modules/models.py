@@ -14,8 +14,8 @@ MODEL_CONFIG = {
         "description": "Llama 3.2 3B — 軽量モデル (~2GB)",
     },
     "large": {
-        "name": "llama3.1:8b",
-        "description": "Llama 3.1 8B — 高精度モデル (~4.7GB)",
+        "name": "gemma2:27b",
+        "description": "Gemma 2 27B — 高精度モデル (~15GB)",
     },
 }
 
