@@ -74,7 +74,47 @@ def save_scenario_report(
             lines += [f"**エラー:** {r['error']}", ""]
             continue
 
-        if mode in ("graphrag", "both") and r.get("cypher"):
+        # ── リトライ履歴（GraphRAGのみ） ──
+        attempts = r.get("attempts", [])
+        total_attempts = r.get("total_attempts", 1)
+        if attempts and mode in ("graphrag", "both"):
+            lines += [f"**試行回数: {total_attempts}回**", ""]
+            for att in attempts:
+                num = att.get("attempt_num", "?")
+                cypher = att.get("cypher_query", "").strip()
+                error = att.get("error")
+                result_str = att.get("cypher_result")
+
+                if error:
+                    lines += [
+                        f"### 試行{num}（失敗）",
+                        "",
+                        "```cypher",
+                        cypher,
+                        "```",
+                        "",
+                        f"**エラー:** {error}",
+                        "",
+                    ]
+                else:
+                    lines += [
+                        f"### 試行{num}（成功）",
+                        "",
+                        "**生成Cypherクエリ:**",
+                        "",
+                        "```cypher",
+                        cypher,
+                        "```",
+                        "",
+                        "**Cypher実行結果:**",
+                        "",
+                        "```",
+                        str(result_str or "").strip(),
+                        "```",
+                        "",
+                    ]
+        elif mode in ("graphrag", "both") and r.get("cypher"):
+            # attemptsフィールドがない旧形式との互換
             lines += [
                 "**生成Cypherクエリ:**",
                 "",

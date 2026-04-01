@@ -84,8 +84,19 @@ def main():
                     "elapsed": round(gr.elapsed_sec, 2),
                     "tokens_in": gr.prompt_tokens,
                     "tokens_out": gr.completion_tokens,
+                    "total_attempts": gr.total_attempts,
+                    "attempts": [
+                        {
+                            "attempt_num": a.attempt_num,
+                            "cypher_query": a.cypher_query,
+                            "error": a.error,
+                            "cypher_result": a.cypher_result,
+                        }
+                        for a in gr.attempts
+                    ],
                 }
-                print(f"  → {gr.elapsed_sec:.1f}s | {gr.prompt_tokens+gr.completion_tokens}tok")
+                retry_info = f" | {gr.total_attempts}回試行" if gr.total_attempts > 1 else ""
+                print(f"  → {gr.elapsed_sec:.1f}s | {gr.prompt_tokens+gr.completion_tokens}tok{retry_info}")
                 print(f"     Cypher: {gr.cypher_query[:80]}...")
                 print(f"     回答: {gr.answer[:60]}")
             except Exception as e:
