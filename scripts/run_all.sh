@@ -8,109 +8,74 @@
 #
 # モデル・データサイズ・クエリ種別・モードを対話選択し、
 # 全組み合わせを順に実行してレポートを生成する。
+# メモリ確認により、利用不可のモデルは選択肢から除外される。
 # =============================================================================
 
 set -euo pipefail
-
-# ── ディレクトリ確認 ──────────────────────────────────────────────────────────
 cd "$(dirname "$0")/.."
+source scripts/_common.sh
 
-# ── カラー定義 ────────────────────────────────────────────────────────────────
-RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
-CYAN='\033[0;36m'; BOLD='\033[1m'; RESET='\033[0m'
+# .env があれば読み込む
+[[ -f .env ]] && set -a && source .env && set +a
 
-# ── 選択肢定義 ────────────────────────────────────────────────────────────────
-MODEL_KEYS=("small"      "qwen-small"          "qwen-large"           "large")
-MODEL_DESC=("llama3.2 (~2GB)  汎用軽量"
-            "qwen2.5-coder:7b  (~4.7GB) Cypher特化・軽量"
-            "qwen2.5-coder:14b (~9GB)   Cypher特化・高精度"
-            "gemma2:27b (~15GB) 汎用高精度")
-
-DATA_KEYS=("small"  "medium"  "large")
-DATA_DESC=("small   (Bug×3,  Engineer×3)"
-           "medium  (Bug×30, Engineer×10)"
-           "large   (Bug×100,Engineer×30)")
-
-QUERY_KEYS=("simple"  "medium"  "multihop")
-QUERY_DESC=("simple   — 単一エンティティの基本クエリ"
-            "medium   — 複数エンティティ・集計クエリ"
-            "multihop — 3ホップ以上の複合クエリ")
-
-MODE_KEYS=("both" "graphrag" "rag")
-MODE_DESC=("both     — GraphRAG と RAG を両方実行"
-           "graphrag — GraphRAG のみ"
-           "rag      — RAG のみ")
-
-# ── ユーティリティ関数 ────────────────────────────────────────────────────────
-
-# 複数選択メニュー
-# 引数: タイトル, キー配列名, 説明配列名
-# 出力: SELECTED_INDICES (グローバル配列)
-multiselect() {
-    local title="$1"
-    local -n _keys=$2
-    local -n _desc=$3
-
-    echo ""
-    echo -e "${BOLD}${CYAN}${title}${RESET}"
-    for i in "${!_keys[@]}"; do
-        printf "  %d) %s\n" $((i+1)) "${_desc[$i]}"
-    done
-    echo ""
-    echo -e "  番号をスペース区切りで入力（例: 1 3）、${BOLD}all${RESET} で全選択:"
-    printf "  > "
-    read -r input
-
-    SELECTED_INDICES=()
-    if [[ "$input" == "all" || "$input" == "ALL" ]]; then
-        for i in "${!_keys[@]}"; do
-            SELECTED_INDICES+=("$i")
-        done
-    else
-        for num in $input; do
-            if [[ "$num" =~ ^[0-9]+$ ]] && (( num >= 1 && num <= ${#_keys[@]} )); then
-                SELECTED_INDICES+=($((num - 1)))
-            else
-                echo -e "${RED}  無効な入力をスキップ: ${num}${RESET}"
-            fi
-        done
-    fi
-
-    if [[ ${#SELECTED_INDICES[@]} -eq 0 ]]; then
-        echo -e "${RED}  何も選択されませんでした。デフォルト(1)を使用します。${RESET}"
-        SELECTED_INDICES=(0)
-    fi
-}
-
-# 選択結果を表示
-show_selection() {
-    local title="$1"
-    local -n _keys=$2
-    local -n _indices=$3
-    echo -e "  ${GREEN}✓ ${title}:${RESET}"
-    for i in "${_indices[@]}"; do
-        echo -e "      - ${_keys[$i]}"
-    done
-}
-
-# ── ヘッダー ─────────────────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────────────────────────
 clear
 echo -e "${BOLD}============================================================${RESET}"
 echo -e "${BOLD}     GraphRAG / RAG 全パターン実行スクリプト${RESET}"
 echo -e "${BOLD}============================================================${RESET}"
 
+# ── 事前チェック ──────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}${CYAN}▶ 事前チェック${RESET}"
+
+# Ollama
+if ! curl -sf "${OLLAMA_URL}/api/tags" &>/dev/null; then
+    echo -e "  ${RED}❌ Ollama に接続できません: ${OLLAMA_URL}${RESET}"
+    echo -e "  ${DIM}   scripts/setup.sh を実行してください。${RESET}"
+    exit 1
+fi
+echo -e "  ${GREEN}✅ Ollama: 接続OK${RESET}"
+
+# Neo4j
+NEO4J_URI="${NEO4J_URI:-bolt://host.docker.internal:7687}"
+NEO4J_USER="${NEO4J_USER:-neo4j}"
+NEO4J_PASSWORD="${NEO4J_PASSWORD:-password}"
+
+NODE_COUNT=$(python3 - <<PYEOF 2>/dev/null || echo "0"
+from neo4j import GraphDatabase
+d = GraphDatabase.driver("${NEO4J_URI}", auth=("${NEO4J_USER}", "${NEO4J_PASSWORD}"))
+with d.session() as s:
+    print(s.run("MATCH (n) RETURN count(n) AS c").single()["c"])
+d.close()
+PYEOF
+)
+
+if (( NODE_COUNT == 0 )); then
+    echo -e "  ${RED}❌ Neo4j にデータがありません。scripts/setup.sh を先に実行してください。${RESET}"
+    exit 1
+fi
+echo -e "  ${GREEN}✅ Neo4j: ${NODE_COUNT}ノード${RESET}"
+
 # ── 選択フェーズ ──────────────────────────────────────────────────────────────
-SELECTED_INDICES=()
+echo ""
+echo -e "${BOLD}------------------------------------------------------------${RESET}"
+echo -e "${BOLD} 実行条件を選択してください${RESET}"
+echo -e "${BOLD}------------------------------------------------------------${RESET}"
 
-multiselect "【1/4】使用するモデルを選択" MODEL_KEYS MODEL_DESC
-SELECTED_MODEL_IDX=("${SELECTED_INDICES[@]}")
+# モデル（メモリ・pull状態チェック付き）
+echo -e "\n${BOLD}${CYAN}【1/4】使用するモデルを選択${RESET}"
+select_models
+SELECTED_MODEL_IDX=("${SELECTED_MODEL_IDX[@]}")
 
+# データサイズ
 multiselect "【2/4】データサイズを選択" DATA_KEYS DATA_DESC
 SELECTED_DATA_IDX=("${SELECTED_INDICES[@]}")
 
+# クエリ種別
 multiselect "【3/4】クエリ種別を選択" QUERY_KEYS QUERY_DESC
 SELECTED_QUERY_IDX=("${SELECTED_INDICES[@]}")
 
+# モード
 multiselect "【4/4】実行モードを選択" MODE_KEYS MODE_DESC
 SELECTED_MODE_IDX=("${SELECTED_INDICES[@]}")
 
@@ -162,25 +127,25 @@ for model_i in "${SELECTED_MODEL_IDX[@]}"; do
         SCENARIO_NAME="${QUERY_KEY}_${DATA_KEY}_${MODEL_KEY}"
 
         echo ""
-        echo -e "${BOLD}[${COMBO_NUM}/${TOTAL}]${RESET} ${CYAN}${SCENARIO_NAME}${RESET} mode=${MODE_KEY}"
-        echo -e "  モデル: ${MODEL_KEY}  データ: ${DATA_DIR}  プロンプト: ${PROMPT_FILE}"
+        echo -e "${BOLD}[${COMBO_NUM}/${TOTAL}]${RESET} ${CYAN}${SCENARIO_NAME}${RESET}  mode=${MODE_KEY}"
+        echo -e "  ${DIM}モデル: ${MODEL_KEY}  データ: ${DATA_DIR}  プロンプト: ${PROMPT_FILE}${RESET}"
 
         START_TIME=$(date +%s)
 
         if python app/run_scenario.py \
-              --prompt-file  "$PROMPT_FILE" \
-              --mode         "$MODE_KEY" \
-              --model        "$MODEL_KEY" \
-              --data-dir     "$DATA_DIR" \
+              --prompt-file   "$PROMPT_FILE" \
+              --mode          "$MODE_KEY" \
+              --model         "$MODEL_KEY" \
+              --data-dir      "$DATA_DIR" \
               --scenario-name "$SCENARIO_NAME"; then
             END_TIME=$(date +%s)
             ELAPSED=$((END_TIME - START_TIME))
-            echo -e "  ${GREEN}✅ 完了${RESET} (${ELAPSED}秒)"
+            echo -e "  ${GREEN}✅ 完了${RESET}  (${ELAPSED}秒)"
             SUCCEEDED=$((SUCCEEDED + 1))
         else
             END_TIME=$(date +%s)
             ELAPSED=$((END_TIME - START_TIME))
-            echo -e "  ${RED}❌ エラー${RESET} (${ELAPSED}秒)"
+            echo -e "  ${RED}❌ エラー${RESET}  (${ELAPSED}秒)"
             FAILED=$((FAILED + 1))
             FAILED_LIST+=("${SCENARIO_NAME} [${MODE_KEY}]")
         fi
