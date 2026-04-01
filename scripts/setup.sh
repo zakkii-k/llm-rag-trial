@@ -309,7 +309,7 @@ step "動作確認"
 python3 - <<PYEOF
 import sys
 sys.path.insert(0, '.')
-from dotenv import load_dotenv; load_dotenv()
+from dotenv import load_dotenv; load_dotenv(dotenv_path='.env')
 from app.modules.env_utils import get_neo4j_uri, get_ollama_url
 from neo4j import GraphDatabase
 import os, requests
