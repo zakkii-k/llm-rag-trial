@@ -31,7 +31,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--prompt-file", required=True)
     parser.add_argument("--mode", choices=["rag", "graphrag", "both"], default="both")
-    parser.add_argument("--model", choices=["small", "large"], default="small")
+    parser.add_argument("--model", choices=list(MODEL_CONFIG.keys()), default="small")
     parser.add_argument("--data-dir", default="data/small")
     parser.add_argument("--n-results", type=int, default=5)
     parser.add_argument("--scenario-name", default="scenario")
