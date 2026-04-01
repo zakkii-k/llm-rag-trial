@@ -17,8 +17,16 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 source scripts/_common.sh
 
-# .env があれば読み込む
+# ── 実行環境を検出してから .env を読み込む ────────────────────────────────────
+DETECTED_HOST=$(detect_host)
+ENV_LABEL=$(detect_env_label)
+
+# .env があれば読み込む（検出より .env の設定を優先）
 [[ -f .env ]] && set -a && source .env && set +a
+
+# .env 読み込み後の実際の接続先ホスト
+ACTUAL_OLLAMA_HOST=$(echo "${OLLAMA_BASE_URL:-}" | sed 's|http://||;s|https://||;s|:.*||')
+ACTUAL_NEO4J_HOST=$(echo "${NEO4J_URI:-}" | sed 's|bolt://||;s|:.*||')
 
 # ──────────────────────────────────────────────────────────────────────────────
 print_header() {
@@ -26,6 +34,7 @@ print_header() {
     echo -e "${BOLD}============================================================${RESET}"
     echo -e "${BOLD}     環境構築スクリプト — setup.sh${RESET}"
     echo -e "${BOLD}============================================================${RESET}"
+    echo -e "  実行環境: ${BOLD}${ENV_LABEL}${RESET}  (推奨ホスト: ${DETECTED_HOST})"
     echo ""
 }
 
@@ -91,15 +100,49 @@ fi
 step ".env ファイル確認"
 if [[ -f .env ]]; then
     ok ".env が存在します"
-else
-    warn ".env が見つかりません。テンプレートを作成します。"
-    cat > .env <<'ENV'
+    # .env のホストと検出環境が一致しているか確認
+    MISMATCH=0
+    if [[ -n "$ACTUAL_OLLAMA_HOST" && "$ACTUAL_OLLAMA_HOST" != "$DETECTED_HOST" ]]; then
+        MISMATCH=1
+    fi
+    if [[ -n "$ACTUAL_NEO4J_HOST" && "$ACTUAL_NEO4J_HOST" != "$DETECTED_HOST" ]]; then
+        MISMATCH=1
+    fi
+
+    if (( MISMATCH )); then
+        warn ".env のホスト設定と実行環境が一致していない可能性があります。"
+        info "  実行環境: ${ENV_LABEL}  推奨ホスト: ${DETECTED_HOST}"
+        info "  .env の Ollama ホスト: ${ACTUAL_OLLAMA_HOST:-未設定}"
+        info "  .env の Neo4j ホスト:  ${ACTUAL_NEO4J_HOST:-未設定}"
+        echo ""
+        printf "  .env を ${DETECTED_HOST} に合わせて自動修正しますか？ [y/N]: "
+        read -r fix_env
+        if [[ "$fix_env" =~ ^[Yy]$ ]]; then
+            cat > .env <<ENV
+# 自動生成 (setup.sh) — 実行環境: ${ENV_LABEL}
 NEO4J_PASSWORD=password
-NEO4J_URI=bolt://host.docker.internal:7687
+NEO4J_URI=bolt://${DETECTED_HOST}:7687
 NEO4J_USER=neo4j
-OLLAMA_BASE_URL=http://host.docker.internal:11434
+OLLAMA_BASE_URL=http://${DETECTED_HOST}:11434
 ENV
-    ok ".env を作成しました。必要に応じて編集してください。"
+            # 再読み込み
+            set -a && source .env && set +a
+            ok ".env を ${DETECTED_HOST} 向けに更新しました。"
+        else
+            warn "既存の .env をそのまま使用します。接続できない場合は手動で修正してください。"
+        fi
+    fi
+else
+    warn ".env が見つかりません。${ENV_LABEL} 向けの設定で作成します。"
+    cat > .env <<ENV
+# 自動生成 (setup.sh) — 実行環境: ${ENV_LABEL}
+NEO4J_PASSWORD=password
+NEO4J_URI=bolt://${DETECTED_HOST}:7687
+NEO4J_USER=neo4j
+OLLAMA_BASE_URL=http://${DETECTED_HOST}:11434
+ENV
+    set -a && source .env && set +a
+    ok ".env を作成しました (ホスト: ${DETECTED_HOST})。パスワードは必要に応じて編集してください。"
 fi
 
 # ──────────────────────────────────────────────────────────────────────────────

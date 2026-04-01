@@ -18,6 +18,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain_neo4j import Neo4jGraph
 from langchain_ollama import OllamaLLM
 
+from app.modules.env_utils import get_neo4j_uri, get_ollama_url
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Cypherクエリ生成プロンプト（Few-Shot例付き）
@@ -197,10 +199,10 @@ def run_graphrag(
     model_name  : Ollamaのモデル名（例: "llama3.2", "qwen2.5-coder:7b"）
     max_retries : 最大試行回数（デフォルト3）
     """
-    neo4j_uri      = os.getenv("NEO4J_URI",      "bolt://localhost:7687")
+    neo4j_uri      = get_neo4j_uri()
     neo4j_user     = os.getenv("NEO4J_USER",     "neo4j")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
-    ollama_url     = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_url     = get_ollama_url()
 
     assert neo4j_password, "NEO4J_PASSWORD 環境変数を設定してください"
 

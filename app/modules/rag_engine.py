@@ -20,6 +20,8 @@ import requests
 import chromadb
 from chromadb.utils import embedding_functions
 
+from app.modules.env_utils import get_ollama_url
+
 
 @dataclass
 class RAGResult:
@@ -35,7 +37,7 @@ def build_vector_store(data_dir: str, collection_name: str = "kg_docs") -> chrom
     CSVをテキスト化してChromaDBに格納する。
     同じcollection_nameが存在する場合は再利用する。
     """
-    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_url = get_ollama_url()
     from app.modules.models import EMBEDDING_MODEL
 
     client = chromadb.Client()
@@ -195,7 +197,7 @@ def run_rag(
     collection  : 事前に構築したChromaDBコレクション
     n_results   : 取得するドキュメント数（デフォルト5）
     """
-    ollama_url = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
+    ollama_url = get_ollama_url()
 
     # 類似度検索
     results = collection.query(query_texts=[prompt], n_results=n_results)

@@ -35,8 +35,29 @@ MODE_DESC=("both     — GraphRAG と RAG を両方実行"
            "graphrag — GraphRAG のみ"
            "rag      — RAG のみ")
 
-# ── Ollama URL ────────────────────────────────────────────────────────────────
-OLLAMA_URL="${OLLAMA_BASE_URL:-http://host.docker.internal:11434}"
+# ── 実行環境の自動検出 ────────────────────────────────────────────────────────
+# /.dockerenv が存在する → Docker コンテナ内
+# それ以外           → WSL / ホスト直実行
+detect_host() {
+    if [ -f /.dockerenv ]; then
+        echo "host.docker.internal"
+    else
+        echo "localhost"
+    fi
+}
+
+detect_env_label() {
+    if [ -f /.dockerenv ]; then
+        echo "Docker コンテナ内"
+    else
+        echo "WSL / ホスト環境"
+    fi
+}
+
+# ── Ollama / Neo4j URL（.env > 自動検出の優先順位） ──────────────────────────
+_DEFAULT_HOST=$(detect_host)
+OLLAMA_URL="${OLLAMA_BASE_URL:-http://${_DEFAULT_HOST}:11434}"
+NEO4J_DEFAULT_URI="bolt://${_DEFAULT_HOST}:7687"
 
 # ── 利用可能RAM (MB) を取得 ───────────────────────────────────────────────────
 get_available_ram_mb() {
