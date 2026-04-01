@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//home/node/**)",
+      "Bash(echo $SSH_AUTH_SOCK)",
+      "Bash(ssh -T git@github.com -o ConnectTimeout=10)",
+      "Bash(git --version)",
+      "Read(//etc/**)",
+      "Read(//proc/1/**)",
+      "Bash(ssh -T git@github.com)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(git config:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Skill(update-config)",
+      "Bash(python3:*)",
+      "Bash(docker ps:*)",
+      "Bash(curl -s http://localhost:11434/api/tags)",
+      "Bash(curl -s http://localhost:7474)",
+      "Bash(curl -s http://neo4j:7474)",
+      "Bash(ip route:*)",
+      "Bash(route)",
+      "Bash(curl -s --connect-timeout 3 http://172.17.0.1:11434/api/tags)",
+      "Bash(curl -s --connect-timeout 3 http://172.17.0.1:7474)",
+      "Bash(curl -s --connect-timeout 3 http://host.docker.internal:11434/api/tags)",
+      "Bash(curl -s --connect-timeout 3 http://host.docker.internal:7474)",
+      "Bash(pip install:*)",
+      "Read(//usr/local/bin/**)",
+      "Read(//usr/bin/**)",
+      "Bash(apt-get install:*)",
+      "Bash(sudo apt-get:*)",
+      "Bash(curl -sS https://bootstrap.pypa.io/get-pip.py)",
+      "Bash(export PATH=$PATH:/home/node/.local/bin)",
+      "Bash(curl -s http://host.docker.internal:11434/api/tags)",
+      "Bash(bash -n scripts/setup.sh)",
+      "Bash(bash -n scripts/run_all.sh)",
+      "Bash(bash -n scripts/_common.sh)"
+    ]
+  }
+}
