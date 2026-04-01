@@ -1,0 +1,17 @@
+id,name,project_id
+MOD-001,認証モジュール,PROJ-001
+MOD-002,検索モジュール,PROJ-001
+MOD-003,決済モジュール,PROJ-001
+MOD-004,商品カタログ,PROJ-001
+MOD-005,iOSアプリ,PROJ-002
+MOD-006,Androidアプリ,PROJ-002
+MOD-007,管理者ダッシュボード,PROJ-003
+MOD-008,レポート機能,PROJ-003
+MOD-009,データパイプライン,PROJ-004
+MOD-010,データウェアハウス,PROJ-004
+MOD-011,推薦アルゴリズム,PROJ-005
+MOD-012,A/Bテスト基盤,PROJ-005
+MOD-013,脆弱性スキャナ,PROJ-006
+MOD-014,アクセスログ分析,PROJ-006
+MOD-015,APIゲートウェイ,PROJ-001
+MOD-016,通知サービス,PROJ-002

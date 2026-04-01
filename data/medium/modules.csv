@@ -1,0 +1,9 @@
+id,name,project_id
+MOD-001,認証モジュール,PROJ-001
+MOD-002,検索モジュール,PROJ-001
+MOD-003,決済モジュール,PROJ-001
+MOD-004,商品カタログ,PROJ-001
+MOD-005,iOSアプリ,PROJ-002
+MOD-006,Androidアプリ,PROJ-002
+MOD-007,管理者ダッシュボード,PROJ-003
+MOD-008,レポート機能,PROJ-003

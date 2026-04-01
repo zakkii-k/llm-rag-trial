@@ -1,0 +1,11 @@
+id,version,status,project_id
+REL-001,v1.0,released,PROJ-001
+REL-002,v1.1,in_progress,PROJ-001
+REL-003,v2.0,planned,PROJ-001
+REL-004,v0.9,released,PROJ-002
+REL-005,v1.0,in_progress,PROJ-002
+REL-006,v3.0,released,PROJ-003
+REL-007,v1.0,in_progress,PROJ-004
+REL-008,v0.5,released,PROJ-005
+REL-009,v1.0,planned,PROJ-005
+REL-010,v1.0,in_progress,PROJ-006

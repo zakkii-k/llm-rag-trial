@@ -1,0 +1,6 @@
+id,name,department_id
+TEAM-001,Backend,DEPT-001
+TEAM-002,Frontend,DEPT-001
+TEAM-003,Mobile,DEPT-001
+TEAM-004,QA,DEPT-003
+TEAM-005,DevOps,DEPT-004

@@ -1,0 +1,3 @@
+id,name,department_id
+TEAM-001,Backend,DEPT-001
+TEAM-002,Frontend,DEPT-001

@@ -1,0 +1,4 @@
+id,title,severity,status,assignee_id,module_id,blocks_release_id
+BUG-001,ログイン画面がフリーズする,critical,open,ENG-001,MOD-001,REL-002
+BUG-002,検索結果が0件になる,high,open,ENG-002,MOD-002,REL-002
+BUG-003,パスワードリセットメールが届かない,medium,resolved,ENG-003,MOD-001,
