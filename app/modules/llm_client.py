@@ -27,11 +27,11 @@ class GenerateResult:
 
 
 # ── Gemini 無料枠レート制限 ────────────────────────────────────────────────────
-# https://ai.google.dev/gemini-api/docs/models
+# https://ai.google.dev/gemini-api/docs/rate-limits
 GEMINI_LIMITS: dict[str, dict] = {
-    "gemini-1.5-flash": {"rpm": 15,  "rpd": 1_500, "tpm": 1_000_000},
-    "gemini-1.5-pro":   {"rpm": 2,   "rpd": 50,    "tpm":    32_000},
-    "gemini-2.0-flash": {"rpm": 15,  "rpd": 1_500, "tpm": 1_000_000},
+    "gemini-2.0-flash":  {"rpm": 15, "rpd": 1_500, "tpm": 1_000_000},
+    "gemini-2.5-flash":  {"rpm": 10, "rpd":   500, "tpm":   250_000},
+    "gemini-2.5-pro":    {"rpm":  5, "rpd":    25, "tpm":   100_000},
 }
 
 
@@ -86,12 +86,11 @@ class LLMClient:
         self.is_gemini = model_name.startswith("gemini-")
 
         if self.is_gemini:
-            import google.generativeai as genai
+            from google import genai
             api_key = os.getenv("GOOGLE_API_KEY", "")
             if not api_key:
                 raise ValueError("GOOGLE_API_KEY 環境変数が設定されていません")
-            genai.configure(api_key=api_key)
-            self._genai = genai.GenerativeModel(model_name)
+            self._genai_client = genai.Client(api_key=api_key)
         else:
             self._ollama_url = get_ollama_url()
 
@@ -102,7 +101,10 @@ class LLMClient:
     def generate(self, prompt: str) -> GenerateResult:
         """回答テキストとトークン数を返す"""
         if self.is_gemini:
-            response = self._genai.generate_content(prompt)
+            response = self._genai_client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+            )
             usage = response.usage_metadata
             return GenerateResult(
                 text=response.text,
@@ -134,11 +136,10 @@ def validate_gemini_api_key(model_name: str) -> tuple[bool, str]:
     if not api_key:
         return False, "GOOGLE_API_KEY が .env に設定されていません"
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel(model_name)
-        resp = model.generate_content("Hi")
-        _ = resp.text  # アクセスしてエラーを早期検出
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        resp = client.models.generate_content(model=model_name, contents="Hi")
+        _ = resp.text
         return True, ""
     except Exception as e:
         return False, str(e)

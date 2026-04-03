@@ -16,8 +16,8 @@ models.py — 使用するLLMモデルの設定
   large            : gemma2:27b         (27B, ~15GB)  汎用高精度
 
 API:
-  gemini-flash     : gemini-1.5-flash   高速・低コスト
-  gemini-pro       : gemini-1.5-pro     最高精度
+  gemini-flash     : gemini-2.0-flash   高速・高機能
+  gemini-pro       : gemini-2.5-pro     最高精度
 
 GraphRAG の Cypher 生成精度を上げたい場合は qwen3 系または qwen-coder 系を推奨。
 """
@@ -70,12 +70,12 @@ MODEL_CONFIG = {
     },
     # ── Google Gemini API ─────────────────────────────────────────────────────
     "gemini-flash": {
-        "name": "gemini-1.5-flash",
-        "description": "Gemini 1.5 Flash — API経由 / 高速・高機能",
+        "name": "gemini-2.0-flash",
+        "description": "Gemini 2.0 Flash — API経由 / 高速・高機能",
     },
     "gemini-pro": {
-        "name": "gemini-1.5-pro",
-        "description": "Gemini 1.5 Pro — API経由 / 最高精度",
+        "name": "gemini-2.5-pro",
+        "description": "Gemini 2.5 Pro — API経由 / 最高精度",
     },
 }
 

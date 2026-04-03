@@ -24,7 +24,7 @@ MODEL_NAMES=(
   "qwen3:8b"          "qwen3:14b"           "qwen3:32b"
   "qwen3.5:4b"        "qwen3.5:9b"          "qwen3.5:27b"
   "gemma2:27b"
-  "gemini-1.5-flash"  "gemini-1.5-pro"
+  "gemini-2.0-flash"  "gemini-2.5-pro"
 )
 MODEL_SIZE_MB=(
   2500
@@ -46,8 +46,8 @@ MODEL_LABEL=(
   "qwen3.5:9b         (~6GB)    マルチモーダル世代・中規模"
   "qwen3.5:27b        (~16GB)   マルチモーダル世代・大規模"
   "gemma2:27b         (~15GB)   汎用高精度"
-  "Gemini 1.5 Flash   [API]     高速・高機能"
-  "Gemini 1.5 Pro     [API]     最高精度"
+  "Gemini 2.0 Flash   [API]     高速・高機能"
+  "Gemini 2.5 Pro     [API]     最高精度"
 )
 
 # ── データ定義 ────────────────────────────────────────────────────────────────
