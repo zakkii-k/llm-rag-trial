@@ -35,7 +35,19 @@
       "Bash(curl -s http://host.docker.internal:11434/api/tags)",
       "Bash(bash -n scripts/setup.sh)",
       "Bash(bash -n scripts/run_all.sh)",
-      "Bash(bash -n scripts/_common.sh)"
+      "Bash(bash -n scripts/_common.sh)",
+      "Bash(git checkout:*)",
+      "Bash(for model:*)",
+      "Bash(do echo:*)",
+      "Bash(curl -sv http://localhost:11434/api/tags)",
+      "Bash(curl -sf http://host.docker.internal:11434/api/tags)",
+      "Bash(curl -s https://ollama.com/search?q=qwen3.5)",
+      "Bash(curl -s https://ollama.com/library/qwen3.5)",
+      "Bash(ls:*)",
+      "Bash(chmod +x /app/scripts/bootstrap.sh)",
+      "Bash(bash -n /app/scripts/bootstrap.sh)",
+      "Bash(memory\" in Ollama 500 response and re-raise as OllamaMemoryError:*)",
+      "Bash(python3 -m pip install \"google-genai>=1.0\" --break-system-packages -q)"
     ]
   }
 }
