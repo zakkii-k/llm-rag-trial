@@ -25,7 +25,7 @@ load_dotenv()
 
 from app.modules.models import MODEL_CONFIG
 from app.modules.report import save_scenario_report
-from app.modules.llm_client import validate_gemini_api_key, GeminiQuotaTracker
+from app.modules.llm_client import validate_gemini_api_key, GeminiQuotaTracker, OllamaMemoryError
 
 
 def parse_args():
@@ -114,6 +114,9 @@ def main():
                 if gemini_tracker:
                     gemini_tracker.record(gr.prompt_tokens, gr.completion_tokens)
                     gemini_tracker.print_status()
+            except OllamaMemoryError as e:
+                print(f"  → {e}")
+                sys.exit(2)
             except Exception as e:
                 entry = {"prompt": prompt, "error": str(e)}
                 print(f"  → エラー: {e}")
@@ -137,6 +140,9 @@ def main():
                 if gemini_tracker:
                     gemini_tracker.record(rr.prompt_tokens, rr.completion_tokens)
                     gemini_tracker.print_status()
+            except OllamaMemoryError as e:
+                print(f"  → {e}")
+                sys.exit(2)
             except Exception as e:
                 entry = {"prompt": prompt, "error": str(e)}
                 print(f"  → エラー: {e}")

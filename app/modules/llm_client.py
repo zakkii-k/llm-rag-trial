@@ -14,6 +14,11 @@ import requests
 from app.modules.env_utils import get_ollama_url
 
 
+class OllamaMemoryError(RuntimeError):
+    """Ollama がメモリ不足でモデルをロードできない場合に送出される例外"""
+    pass
+
+
 @dataclass
 class GenerateResult:
     text: str
@@ -107,7 +112,15 @@ class LLMClient:
         else:
             from langchain_ollama import OllamaLLM
             llm = OllamaLLM(model=self.model_name, base_url=self._ollama_url)
-            text = llm.invoke(prompt)
+            try:
+                text = llm.invoke(prompt)
+            except Exception as e:
+                if "more system memory" in str(e) or "status code: 500" in str(e):
+                    raise OllamaMemoryError(
+                        f"メモリ不足: {self.model_name} をロードできません。"
+                        f"より小さいモデルを選択するか、不要なプロセスを終了してください。\n({e})"
+                    ) from e
+                raise
             pt, ct = _ollama_token_counts(self._ollama_url, self.model_name, prompt, text)
             return GenerateResult(text=text, prompt_tokens=pt, completion_tokens=ct)
 

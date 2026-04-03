@@ -133,19 +133,30 @@ for model_i in "${SELECTED_MODEL_IDX[@]}"; do
 
         START_TIME=$(date +%s)
 
-        if python3 app/run_scenario.py \
+        set +e
+        python3 app/run_scenario.py \
               --prompt-file   "$PROMPT_FILE" \
               --mode          "$MODE_KEY" \
               --model         "$MODEL_KEY" \
               --data-dir      "$DATA_DIR" \
-              --scenario-name "$SCENARIO_NAME"; then
-            END_TIME=$(date +%s)
-            ELAPSED=$((END_TIME - START_TIME))
+              --scenario-name "$SCENARIO_NAME"
+        EXIT_CODE=$?
+        set -e
+
+        END_TIME=$(date +%s)
+        ELAPSED=$((END_TIME - START_TIME))
+
+        if (( EXIT_CODE == 0 )); then
             echo -e "  ${GREEN}✅ 完了${RESET}  (${ELAPSED}秒)"
             SUCCEEDED=$((SUCCEEDED + 1))
+        elif (( EXIT_CODE == 2 )); then
+            echo -e "  ${YELLOW}⚠️  メモリ不足のためスキップ${RESET}  (${ELAPSED}秒)"
+            echo -e "  ${DIM}   残りのシナリオも同モデルはスキップします。${RESET}"
+            FAILED=$((FAILED + 1))
+            FAILED_LIST+=("${SCENARIO_NAME} [${MODE_KEY}] — メモリ不足")
+            # 同モデルの残シナリオをスキップ
+            break 3
         else
-            END_TIME=$(date +%s)
-            ELAPSED=$((END_TIME - START_TIME))
             echo -e "  ${RED}❌ エラー${RESET}  (${ELAPSED}秒)"
             FAILED=$((FAILED + 1))
             FAILED_LIST+=("${SCENARIO_NAME} [${MODE_KEY}]")
