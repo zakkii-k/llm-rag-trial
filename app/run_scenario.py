@@ -55,9 +55,12 @@ def main():
     gemini_tracker = None
     if model_name.startswith("gemini-"):
         print(f"Gemini APIキー検証中 ({model_name})...")
-        ok, err = validate_gemini_api_key(model_name)
-        if not ok:
-            print(f"エラー: Gemini APIキーが無効です — {err}")
+        valid, err = validate_gemini_api_key(model_name)
+        if not valid:
+            if "クォータ超過" in err:
+                print(f"エラー: {err}")
+            else:
+                print(f"エラー: Gemini APIキーが無効です — {err}")
             sys.exit(1)
         print("APIキー検証OK\n")
         gemini_tracker = GeminiQuotaTracker(model_name)

@@ -131,6 +131,7 @@ def validate_gemini_api_key(model_name: str) -> tuple[bool, str]:
     """
     Gemini API キーの有効性を確認する。
     Returns: (is_valid, error_message)
+    429 クォータ超過は「キー有効だが枠切れ」として (False, quota_msg) を返す。
     """
     api_key = os.getenv("GOOGLE_API_KEY", "")
     if not api_key:
@@ -142,7 +143,14 @@ def validate_gemini_api_key(model_name: str) -> tuple[bool, str]:
         _ = resp.text
         return True, ""
     except Exception as e:
-        return False, str(e)
+        msg = str(e)
+        if "429" in msg or "RESOURCE_EXHAUSTED" in msg:
+            return False, (
+                f"クォータ超過 ({model_name}): 無料枠の上限に達しています。\n"
+                "  しばらく待つか、Google AI Studio でクォータ状況を確認してください。\n"
+                "  https://ai.dev/rate-limit"
+            )
+        return False, msg
 
 
 def _ollama_token_counts(base_url: str, model: str, prompt: str, response: str):
