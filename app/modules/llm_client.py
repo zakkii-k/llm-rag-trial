@@ -29,9 +29,10 @@ class GenerateResult:
 # ── Gemini 無料枠レート制限 ────────────────────────────────────────────────────
 # https://ai.google.dev/gemini-api/docs/rate-limits
 GEMINI_LIMITS: dict[str, dict] = {
-    "gemini-2.0-flash":  {"rpm": 15, "rpd": 1_500, "tpm": 1_000_000},
-    "gemini-2.5-flash":  {"rpm": 10, "rpd":   500, "tpm":   250_000},
-    "gemini-2.5-pro":    {"rpm":  5, "rpd":    25, "tpm":   100_000},
+    "gemini-2.5-flash":          {"rpm": 10, "rpd":   500, "tpm": 250_000},
+    "gemini-2.5-flash-lite":     {"rpm": 15, "rpd": 1_500, "tpm": 250_000},
+    "gemini-3-flash-preview":    {"rpm": 10, "rpd":   500, "tpm": 250_000},
+    "gemini-3.1-flash-lite-preview": {"rpm": 15, "rpd": 1_500, "tpm": 250_000},
 }
 
 
