@@ -14,6 +14,7 @@ MODEL_KEYS=(
   "small"
   "qwen-small"       "qwen-large"        "qwen-coder-32b"
   "qwen3-small"      "qwen3-medium"      "qwen3-large"
+  "qwen35-small"     "qwen35-medium"     "qwen35-large"
   "large"
   "gemini-flash"     "gemini-pro"
 )
@@ -21,6 +22,7 @@ MODEL_NAMES=(
   "llama3.2"
   "qwen2.5-coder:7b"  "qwen2.5-coder:14b"  "qwen2.5-coder:32b"
   "qwen3:8b"          "qwen3:14b"           "qwen3:32b"
+  "qwen3.5:4b"        "qwen3.5:9b"          "qwen3.5:27b"
   "gemma2:27b"
   "gemini-1.5-flash"  "gemini-1.5-pro"
 )
@@ -28,6 +30,7 @@ MODEL_SIZE_MB=(
   2500
   6000   11000   21500
   5500   10500   20500
+  3200   6500    16500
   17000
   0      0
 )
@@ -39,6 +42,9 @@ MODEL_LABEL=(
   "qwen3:8b           (~5.2GB)  最新世代・軽量"
   "qwen3:14b          (~9.3GB)  最新世代・中規模"
   "qwen3:32b          (~18.8GB) 最新世代・大規模"
+  "qwen3.5:4b         (~3GB)    マルチモーダル世代・軽量"
+  "qwen3.5:9b         (~6GB)    マルチモーダル世代・中規模"
+  "qwen3.5:27b        (~16GB)   マルチモーダル世代・大規模"
   "gemma2:27b         (~15GB)   汎用高精度"
   "Gemini 1.5 Flash   [API]     高速・高機能"
   "Gemini 1.5 Pro     [API]     最高精度"

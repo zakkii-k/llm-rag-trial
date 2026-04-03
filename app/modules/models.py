@@ -10,6 +10,9 @@ models.py — 使用するLLMモデルの設定
   qwen3-small      : qwen3:8b           (8B,  ~5.2GB) 最新世代軽量
   qwen3-medium     : qwen3:14b          (14B, ~9.3GB) 最新世代中規模
   qwen3-large      : qwen3:32b          (32B, ~18.8GB)最新世代大規模
+  qwen35-small     : qwen3.5:4b         (4B,  ~3GB)   マルチモーダル世代軽量
+  qwen35-medium    : qwen3.5:9b         (9B,  ~6GB)   マルチモーダル世代中規模
+  qwen35-large     : qwen3.5:27b        (27B, ~16GB)  マルチモーダル世代大規模
   large            : gemma2:27b         (27B, ~15GB)  汎用高精度
 
 API:
@@ -48,6 +51,18 @@ MODEL_CONFIG = {
     "qwen3-large": {
         "name": "qwen3:32b",
         "description": "Qwen3 32B — 最新世代・大規模 (~18.8GB)",
+    },
+    "qwen35-small": {
+        "name": "qwen3.5:4b",
+        "description": "Qwen3.5 4B — マルチモーダル世代・軽量 (~3GB)",
+    },
+    "qwen35-medium": {
+        "name": "qwen3.5:9b",
+        "description": "Qwen3.5 9B — マルチモーダル世代・中規模 (~6GB)",
+    },
+    "qwen35-large": {
+        "name": "qwen3.5:27b",
+        "description": "Qwen3.5 27B — マルチモーダル世代・大規模 (~16GB)",
     },
     "large": {
         "name": "gemma2:27b",
