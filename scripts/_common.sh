@@ -262,7 +262,7 @@ pull_model() {
     curl -s -X POST "${OLLAMA_URL}/api/pull" \
         -H "Content-Type: application/json" \
         -d "{\"name\": \"${model}\"}" \
-        | python3 -u - <<'PYEOF'
+    | python3 -u -c '
 import sys, json
 
 prev_status = ""
@@ -281,14 +281,14 @@ for line in sys.stdin:
 
     if total and completed:
         pct = int(completed * 100 / total)
-        bar = "█" * (pct // 5) + "░" * (20 - pct // 5)
+        bar = chr(0x2588) * (pct // 5) + chr(0x2591) * (20 - pct // 5)
         print(f"\r    [{bar}] {pct:3d}%  {status:<30}", end="", flush=True)
     elif status != prev_status:
         print(f"\r    {status:<60}", end="", flush=True)
         prev_status = status
 
-print()  # 改行
-PYEOF
+print()
+'
 
     # 成否確認
     local result

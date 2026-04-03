@@ -194,6 +194,21 @@ for i in "${!MODEL_KEYS[@]}"; do
     label="${MODEL_LABEL[$i]}"
     required="${MODEL_SIZE_MB[$i]}"
 
+    # API モデル（SIZE_MB=0）はOllama pullの対象外
+    if (( required == 0 )); then
+        api_key="${GOOGLE_API_KEY:-}"
+        if [[ -z "$api_key" && -f .env ]]; then
+            api_key=$(grep -E "^GOOGLE_API_KEY=" .env 2>/dev/null \
+                      | cut -d'=' -f2- | tr -d '"' | tr -d "'" | head -1)
+        fi
+        if [[ -n "$api_key" ]]; then
+            printf "    ${GREEN}✅ %s  [APIキー設定済み]${RESET}\n" "$label"
+        else
+            printf "    ${YELLOW}   %s  [APIキー未設定 — .env に GOOGLE_API_KEY を設定]${RESET}\n" "$label"
+        fi
+        continue
+    fi
+
     already_pulled=0
     echo "$PULLED_MODELS" | grep -qF "$name"          && already_pulled=1
     echo "$PULLED_MODELS" | grep -qF "${name}:latest" && already_pulled=1
