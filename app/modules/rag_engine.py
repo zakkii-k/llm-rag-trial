@@ -16,11 +16,11 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 
-import requests
 import chromadb
 from chromadb.utils import embedding_functions
 
 from app.modules.env_utils import get_ollama_url
+from app.modules.llm_client import LLMClient
 
 
 @dataclass
@@ -197,8 +197,6 @@ def run_rag(
     collection  : 事前に構築したChromaDBコレクション
     n_results   : 取得するドキュメント数（デフォルト5）
     """
-    ollama_url = get_ollama_url()
-
     # 類似度検索
     results = collection.query(query_texts=[prompt], n_results=n_results)
     retrieved_docs = results["documents"][0] if results["documents"] else []
@@ -212,22 +210,13 @@ def run_rag(
     )
 
     start = time.perf_counter()
-    resp = requests.post(
-        f"{ollama_url}/api/generate",
-        json={"model": model_name, "prompt": full_prompt, "stream": False},
-        timeout=300,
-    )
+    gen = LLMClient(model_name).generate(full_prompt)
     elapsed = time.perf_counter() - start
 
-    data = resp.json()
-    answer            = data.get("response", "")
-    prompt_tokens     = data.get("prompt_eval_count", 0)
-    completion_tokens = data.get("eval_count", 0)
-
     return RAGResult(
-        answer=answer,
+        answer=gen.text,
         retrieved_docs=retrieved_docs,
         elapsed_sec=elapsed,
-        prompt_tokens=prompt_tokens,
-        completion_tokens=completion_tokens,
+        prompt_tokens=gen.prompt_tokens,
+        completion_tokens=gen.completion_tokens,
     )

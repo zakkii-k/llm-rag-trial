@@ -1,11 +1,12 @@
 """
-graphrag_engine.py — Neo4j + LangChain を使ったGraphRAGエンジン
+graphrag_engine.py — Neo4j + LLM を使ったGraphRAGエンジン
 
 精度向上のための改善:
 - Few-shot例をCypher生成プロンプトに追加
 - Cypherバリデーション（実行前の静的チェック）
 - エラー時は最大3回リトライ（エラー内容をLLMにフィードバック）
 - リトライ履歴を GraphRAGResult.attempts に記録
+- Ollama / Gemini API を LLMClient で統一
 """
 
 import os
@@ -13,17 +14,15 @@ import re
 import time
 from dataclasses import dataclass, field
 
-import requests
 from langchain_core.prompts import PromptTemplate
 from langchain_neo4j import Neo4jGraph
-from langchain_ollama import OllamaLLM
 
-from app.modules.env_utils import get_neo4j_uri, get_ollama_url
+from app.modules.env_utils import get_neo4j_uri
+from app.modules.llm_client import LLMClient
 
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Cypherクエリ生成プロンプト（Few-Shot例付き）
-# スキーマ + 典型パターンの例を与えることで、モデルのCypher精度を向上させる。
 # ──────────────────────────────────────────────────────────────────────────────
 _CYPHER_GENERATION_TEMPLATE = """\
 あなたはNeo4j Cypherクエリの専門家です。
@@ -130,8 +129,26 @@ _CYPHER_CORRECTION_TEMPLATE = """\
 
 # Cypher実行結果をもとに回答を生成するプロンプト
 _QA_TEMPLATE = """\
-以下のCypher実行結果を参考に、質問に日本語で回答してください。
-結果が空の場合は「該当するデータが見つかりませんでした」と答えてください。
+あなたはデータベースの検索結果を日本語で説明するアシスタントです。
+以下のCypher実行結果を読み取り、質問に対して正確に回答してください。
+
+## 結果の読み方
+Cypher実行結果はPythonのリスト形式です。
+- 空リスト `[]` → 該当データなし
+- それ以外 → 各辞書のキーがプロパティ名、値がその内容
+
+### 読み取り例
+結果: `[{{'b.id': 'BUG-001', 'b.title': 'ログイン失敗', 'e.name': '田中太郎'}}]`
+→ バグ BUG-001「ログイン失敗」の担当者は田中太郎 と読み取る
+
+結果: `[{{'department': 'Engineering', 'bug_count': 5}}, {{'department': 'QA', 'bug_count': 3}}]`
+→ Engineering部署に5件、QA部署に3件 と読み取る
+
+## 重要なルール
+- 結果が空リスト `[]` の場合のみ「該当するデータが見つかりませんでした」と答えること
+- 結果に値が含まれている場合は、必ずその値を使って回答すること
+- 辞書のキー名（例: `b.id`, `e.name`）ではなく、値（例: `BUG-001`, `田中太郎`）を使って答えること
+- 複数件ある場合はリスト形式で列挙すること
 
 ## 質問
 {question}
@@ -148,20 +165,20 @@ class GraphRAGAttempt:
     """1回のCypher生成・実行試行の記録"""
     attempt_num: int
     cypher_query: str
-    error: str | None       # None = 成功（実行エラーなし）
-    cypher_result: str | None  # 成功時の結果（失敗時はNone）
+    error: str | None
+    cypher_result: str | None
 
 
 @dataclass
 class GraphRAGResult:
     answer: str
-    cypher_query: str       # 最終的に成功したCypherクエリ
-    cypher_result: str      # 最終的なCypher実行結果
+    cypher_query: str
+    cypher_result: str
     elapsed_sec: float
     prompt_tokens: int
     completion_tokens: int
     attempts: list = field(default_factory=list)  # list[GraphRAGAttempt]
-    total_attempts: int = 1  # 最終的に何回試行したか
+    total_attempts: int = 1
 
 
 # SQL由来の構文パターン（Neo4j Cypherでは無効）
@@ -175,10 +192,6 @@ _SQL_ANTIPATTERNS = [
 
 
 def _validate_cypher(cypher: str) -> str | None:
-    """
-    静的チェック: SQL由来の構文を検出して理由を返す。
-    問題なければ None を返す。
-    """
     for pattern, reason in _SQL_ANTIPATTERNS:
         if re.search(pattern, cypher, re.IGNORECASE):
             return f"構文エラー（静的チェック）: {reason} 検出パターン: {pattern}"
@@ -196,13 +209,12 @@ def run_graphrag(
     Parameters
     ----------
     prompt      : 自然言語の質問
-    model_name  : Ollamaのモデル名（例: "llama3.2", "qwen2.5-coder:7b"）
+    model_name  : モデル名（Ollama: "llama3.2" 等 / Gemini: "gemini-1.5-flash" 等）
     max_retries : 最大試行回数（デフォルト3）
     """
     neo4j_uri      = get_neo4j_uri()
     neo4j_user     = os.getenv("NEO4J_USER",     "neo4j")
     neo4j_password = os.getenv("NEO4J_PASSWORD")
-    ollama_url     = get_ollama_url()
 
     assert neo4j_password, "NEO4J_PASSWORD 環境変数を設定してください"
 
@@ -213,7 +225,7 @@ def run_graphrag(
         refresh_schema=False,
     )
 
-    llm = OllamaLLM(model=model_name, base_url=ollama_url)
+    llm = LLMClient(model_name)
 
     cypher_gen_prompt = PromptTemplate(
         input_variables=["question"],
@@ -234,6 +246,8 @@ def run_graphrag(
     answer = ""
     final_cypher = ""
     final_result = ""
+    prompt_tokens = 0
+    completion_tokens = 0
 
     start = time.perf_counter()
 
@@ -268,11 +282,11 @@ def run_graphrag(
             result = graph.query(cypher)
             result_str = str(result)
 
-            # ── 回答生成 ──
-            answer = llm.invoke(qa_prompt.format(
-                question=prompt,
-                context=result_str,
-            ))
+            # ── 回答生成（トークン数もここで取得）──
+            gen = llm.generate(qa_prompt.format(question=prompt, context=result_str))
+            answer = gen.text
+            prompt_tokens = gen.prompt_tokens
+            completion_tokens = gen.completion_tokens
 
             attempts.append(GraphRAGAttempt(
                 attempt_num=attempt_num,
@@ -297,13 +311,8 @@ def run_graphrag(
 
     elapsed = time.perf_counter() - start
 
-    # 全試行が失敗した場合
     if not answer:
         answer = "Cypherクエリの生成・実行に失敗しました。"
-
-    prompt_tokens, completion_tokens = _get_token_counts(
-        ollama_url, model_name, prompt, answer
-    )
 
     return GraphRAGResult(
         answer=answer,
@@ -318,98 +327,10 @@ def run_graphrag(
 
 
 def _clean_cypher(raw: str) -> str:
-    """
-    LLMの出力からCypherクエリだけを抽出する。
-    ```cypher ... ``` や ``` ... ``` ブロックがあれば取り出す。
-    """
-    # コードブロック除去
     block = re.search(r"```(?:cypher)?\s*([\s\S]+?)```", raw, re.IGNORECASE)
     if block:
         return block.group(1).strip()
-    # コードブロックなし: 最初のMATCH/RETURN行以降を返す
     match = re.search(r"(MATCH|RETURN|WITH|CALL)\b", raw, re.IGNORECASE)
     if match:
         return raw[match.start():].strip()
     return raw.strip()
-
-
-def _build_schema(uri: str, user: str, password: str) -> str:
-    """
-    APOC を使わず db.schema.nodeTypeProperties() などで
-    ノード/リレーションスキーマを文字列に変換する。
-    """
-    from neo4j import GraphDatabase
-    try:
-        driver = GraphDatabase.driver(uri, auth=(user, password))
-        with driver.session() as session:
-            node_props: dict[str, list[str]] = {}
-            result = session.run("""
-                CALL db.schema.nodeTypeProperties()
-                YIELD nodeType, propertyName, propertyTypes
-                RETURN nodeType, propertyName, propertyTypes
-            """)
-            for rec in result:
-                label = rec["nodeType"].strip(":`")
-                prop = rec["propertyName"]
-                node_props.setdefault(label, []).append(prop)
-
-            rels = []
-            result = session.run("""
-                MATCH (a)-[r]->(b)
-                RETURN DISTINCT labels(a)[0] AS from, type(r) AS rel, labels(b)[0] AS to
-                LIMIT 50
-            """)
-            for rec in result:
-                rels.append(f"(:{rec['from']})-[:{rec['rel']}]->(:{rec['to']})")
-
-        driver.close()
-
-        lines = ["Node properties are the following:"]
-        for label, props in node_props.items():
-            lines.append(f"{label} {{{', '.join(props)}}}")
-        lines.append("Relationship properties are the following:")
-        lines.append("The relationships are the following:")
-        lines.extend(rels)
-        return "\n".join(lines)
-
-    except Exception:
-        return """\
-Node properties are the following:
-Engineer {id: STRING, name: STRING, email: STRING}
-Bug {id: STRING, title: STRING, severity: STRING, status: STRING}
-Team {id: STRING, name: STRING}
-Department {id: STRING, name: STRING}
-Project {id: STRING, name: STRING, status: STRING}
-Module {id: STRING, name: STRING}
-Release {id: STRING, version: STRING, status: STRING}
-Relationship properties are the following:
-The relationships are the following:
-(:Engineer)-[:MEMBER_OF]->(:Team)
-(:Team)-[:BELONGS_TO]->(:Department)
-(:Bug)-[:ASSIGNED_TO]->(:Engineer)
-(:Bug)-[:FOUND_IN]->(:Module)
-(:Module)-[:PART_OF]->(:Project)
-(:Bug)-[:BLOCKS]->(:Release)
-(:Release)-[:BELONGS_TO]->(:Project)""".strip()
-
-
-def _get_token_counts(base_url: str, model: str, prompt: str, response: str):
-    try:
-        resp = requests.post(
-            f"{base_url}/api/generate",
-            json={
-                "model": model,
-                "prompt": prompt,
-                "stream": False,
-                "options": {"num_predict": 1},
-            },
-            timeout=60,
-        )
-        data = resp.json()
-        return data.get("prompt_eval_count", 0), data.get("eval_count", 0)
-    except Exception:
-        return _estimate_tokens(prompt), _estimate_tokens(response)
-
-
-def _estimate_tokens(text: str) -> int:
-    return max(1, int(len(text) * 0.6))

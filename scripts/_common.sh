@@ -9,13 +9,40 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 CYAN='\033[0;36m'; BOLD='\033[1m'; DIM='\033[2m'; RESET='\033[0m'
 
 # ── モデル定義 ────────────────────────────────────────────────────────────────
-MODEL_KEYS=("small"      "qwen-small"          "qwen-large"           "large")
-MODEL_NAMES=("llama3.2"  "qwen2.5-coder:7b"    "qwen2.5-coder:14b"    "gemma2:27b")
-MODEL_SIZE_MB=(2500       6000                  11000                  17000)
-MODEL_LABEL=("llama3.2 (~2GB)   汎用軽量"
-             "qwen2.5-coder:7b  (~4.7GB)  Cypher特化・軽量"
-             "qwen2.5-coder:14b (~9GB)    Cypher特化・高精度"
-             "gemma2:27b (~15GB)  汎用高精度")
+# SIZE_MB=0 は API モデル（メモリチェック・pullチェック対象外）
+MODEL_KEYS=(
+  "small"
+  "qwen-small"       "qwen-large"        "qwen-coder-32b"
+  "qwen3-small"      "qwen3-medium"      "qwen3-large"
+  "large"
+  "gemini-flash"     "gemini-pro"
+)
+MODEL_NAMES=(
+  "llama3.2"
+  "qwen2.5-coder:7b"  "qwen2.5-coder:14b"  "qwen2.5-coder:32b"
+  "qwen3:8b"          "qwen3:14b"           "qwen3:32b"
+  "gemma2:27b"
+  "gemini-1.5-flash"  "gemini-1.5-pro"
+)
+MODEL_SIZE_MB=(
+  2500
+  6000   11000   21500
+  5500   10500   20500
+  17000
+  0      0
+)
+MODEL_LABEL=(
+  "llama3.2           (~2GB)    汎用軽量"
+  "qwen2.5-coder:7b   (~4.7GB)  Cypher特化・軽量"
+  "qwen2.5-coder:14b  (~9GB)    Cypher特化・高精度"
+  "qwen2.5-coder:32b  (~20GB)   Cypher特化・最大"
+  "qwen3:8b           (~5.2GB)  最新世代・軽量"
+  "qwen3:14b          (~9.3GB)  最新世代・中規模"
+  "qwen3:32b          (~18.8GB) 最新世代・大規模"
+  "gemma2:27b         (~15GB)   汎用高精度"
+  "Gemini 1.5 Flash   [API]     高速・高機能"
+  "Gemini 1.5 Pro     [API]     最高精度"
+)
 
 # ── データ定義 ────────────────────────────────────────────────────────────────
 DATA_KEYS=("small"  "medium"  "large")
@@ -65,10 +92,8 @@ get_available_ram_mb() {
 }
 
 # ── Ollama にpull済みか確認 ───────────────────────────────────────────────────
-# 引数: モデル名 (例: llama3.2, qwen2.5-coder:7b)
 is_model_pulled() {
     local model="$1"
-    # :latest タグ省略に対応
     curl -s "${OLLAMA_URL}/api/tags" \
         | python3 -c "
 import sys, json
@@ -79,15 +104,26 @@ print('yes' if name in models or name + ':latest' in models else 'no')
 }
 
 # ── モデルの状態を判定 ────────────────────────────────────────────────────────
-# 引数: index (MODEL_KEYS のインデックス)
-# 出力: "ok" / "ram" / "notpulled"
+# 出力: "ok" / "ram" / "notpulled" / "noapikey"
 check_model_status() {
     local idx="$1"
-    local avail_mb
-    avail_mb=$(get_available_ram_mb)
     local required_mb="${MODEL_SIZE_MB[$idx]}"
     local model_name="${MODEL_NAMES[$idx]}"
 
+    # API モデル（SIZE_MB=0）は Gemini として扱う
+    if (( required_mb == 0 )); then
+        local api_key="${GOOGLE_API_KEY:-}"
+        # .env から直接読む（source済みでない場合の補完）
+        if [[ -z "$api_key" && -f .env ]]; then
+            api_key=$(grep -E "^GOOGLE_API_KEY=" .env 2>/dev/null \
+                      | cut -d'=' -f2- | tr -d '"' | tr -d "'" | head -1)
+        fi
+        [[ -z "$api_key" ]] && echo "noapikey" || echo "ok"
+        return
+    fi
+
+    local avail_mb
+    avail_mb=$(get_available_ram_mb)
     if (( avail_mb < required_mb )); then
         echo "ram"
         return
@@ -95,12 +131,7 @@ check_model_status() {
 
     local pulled
     pulled=$(is_model_pulled "$model_name")
-    if [[ "$pulled" != "yes" ]]; then
-        echo "notpulled"
-        return
-    fi
-
-    echo "ok"
+    [[ "$pulled" != "yes" ]] && echo "notpulled" || echo "ok"
 }
 
 # ── モデル選択メニュー（メモリ・pull状態チェック付き） ────────────────────────
@@ -131,6 +162,10 @@ select_models() {
                 ;;
             notpulled)
                 printf "  ${DIM}-) %s  ${YELLOW}[未pull — setup.sh を実行してください]${RESET}${DIM}${RESET}\n" \
+                    "$label"
+                ;;
+            noapikey)
+                printf "  ${DIM}-) %s  ${YELLOW}[APIキー未設定 — .env に GOOGLE_API_KEY を設定してください]${RESET}${DIM}${RESET}\n" \
                     "$label"
                 ;;
         esac

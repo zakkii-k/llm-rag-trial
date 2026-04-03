@@ -25,6 +25,7 @@ load_dotenv()
 
 from app.modules.models import MODEL_CONFIG
 from app.modules.report import save_scenario_report
+from app.modules.llm_client import validate_gemini_api_key, GeminiQuotaTracker
 
 
 def parse_args():
@@ -49,6 +50,17 @@ def main():
     model_name = config["name"]
     prompts = load_prompts(args.prompt_file)
     started_at = datetime.now()
+
+    # Gemini APIキー検証
+    gemini_tracker = None
+    if model_name.startswith("gemini-"):
+        print(f"Gemini APIキー検証中 ({model_name})...")
+        ok, err = validate_gemini_api_key(model_name)
+        if not ok:
+            print(f"エラー: Gemini APIキーが無効です — {err}")
+            sys.exit(1)
+        print("APIキー検証OK\n")
+        gemini_tracker = GeminiQuotaTracker(model_name)
 
     print(f"\n{'='*60}")
     print(f"シナリオ: {args.scenario_name}")
@@ -99,6 +111,9 @@ def main():
                 print(f"  → {gr.elapsed_sec:.1f}s | {gr.prompt_tokens+gr.completion_tokens}tok{retry_info}")
                 print(f"     Cypher: {gr.cypher_query[:80]}...")
                 print(f"     回答: {gr.answer[:60]}")
+                if gemini_tracker:
+                    gemini_tracker.record(gr.prompt_tokens, gr.completion_tokens)
+                    gemini_tracker.print_status()
             except Exception as e:
                 entry = {"prompt": prompt, "error": str(e)}
                 print(f"  → エラー: {e}")
@@ -119,6 +134,9 @@ def main():
                 }
                 print(f"  → {rr.elapsed_sec:.1f}s | {rr.prompt_tokens+rr.completion_tokens}tok")
                 print(f"     回答: {rr.answer[:60]}")
+                if gemini_tracker:
+                    gemini_tracker.record(rr.prompt_tokens, rr.completion_tokens)
+                    gemini_tracker.print_status()
             except Exception as e:
                 entry = {"prompt": prompt, "error": str(e)}
                 print(f"  → エラー: {e}")
